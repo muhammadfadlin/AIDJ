@@ -8,15 +8,6 @@
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-# class MyLabel(QtGui.QWidget):
-#     def paintEvent(self, event):
-#         painter = QtGui.QPainter(self)
-#         painter.setPen(QtCore.Qt.black)
-#         painter.translate(20, 100)
-#         painter.rotate(-90)
-#         painter.drawText(0, 0, "hellos")
-#         painter.end()
-
 class Ui_SplashScreen(object):
     def setupUi(self, SplashScreen):
         SplashScreen.setObjectName("SplashScreen")
@@ -163,6 +154,17 @@ class Ui_SplashScreen(object):
         self.songLength1.setFrameShape(QtWidgets.QFrame.NoFrame)
         self.songLength1.setAlignment(QtCore.Qt.AlignCenter)
         self.songLength1.setObjectName("songLength1")
+        self.songBpm1 = QtWidgets.QLabel(self.container)
+        self.songBpm1.setGeometry(QtCore.QRect(605, 31, 41, 23))
+        font = QtGui.QFont()
+        font.setFamily("Roboto Light")
+        self.songBpm1.setFont(font)
+        self.songBpm1.setStyleSheet("background-color:none;\n"
+"color:#FFFFFF;\n"
+"")
+        self.songBpm1.setFrameShape(QtWidgets.QFrame.NoFrame)
+        self.songBpm1.setAlignment(QtCore.Qt.AlignCenter)
+        self.songBpm1.setObjectName("songBpm1")
         self.songPlayed2 = QtWidgets.QLabel(self.container)
         self.songPlayed2.setGeometry(QtCore.QRect(400, 37, 171, 21))
         font = QtGui.QFont()
@@ -246,6 +248,7 @@ class Ui_SplashScreen(object):
         # self.play2.setText(_translate("SplashScreen", "Play"))
         # self.backward2.setText(_translate("SplashScreen", "Backward"))
         # self.stop2.setText(_translate("SplashScreen", "Stop"))
+        self.songBpm1.setText(_translate("SplashScreen", "100 BPM"))
         self.addFile.setText(_translate("SplashScreen", "Add File"))
         # self.volumeLabel1.setText(_translate("SplashScreen", "<html><head/><body><p>VOLUME</p></body></html>"))
         # self.timestretchLabel2.setText(_translate("SplashScreen", "<html><head/><body><p>TIME<span style=\" font-weight:600;\">STRETCH</span></p></body></html>"))
@@ -255,4 +258,13 @@ class Ui_SplashScreen(object):
         # self.songLength2.setText(_translate("SplashScreen", "<html><head/><body><p>00:00</p></body></html>"))
         # self.timestretchLabel1.setText(_translate("SplashScreen", "<html><head/><body><p>TIME<span style=\" font-weight:600;\">STRETCH</span></p></body></html>"))
         # self.volumeLabel2.setText(_translate("SplashScreen", "<html><head/><body><p>VOLUME</p></body></html>"))
+
+if __name__ == "__main__":
+    import sys
+    app = QtWidgets.QApplication(sys.argv)
+    SplashScreen = QtWidgets.QMainWindow()
+    ui = Ui_SplashScreen()
+    ui.setupUi(SplashScreen)
+    SplashScreen.show()
+    sys.exit(app.exec_())
 
