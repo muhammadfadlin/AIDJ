@@ -21,25 +21,30 @@ class MusicPlayer():
         self.SplashScreen.show()
 
         #Value Set
+        self.timeInterval = 0.01
         self.time1 = 0 #timer1
         self.time2 = 0 #timer2
         self.pauseState1 = True
         self.pauseState2 = True
         self.playedAlready1 = False
         self.playedAlready2 = False
+        self.bpm1Changed = False
+        self.bpm2Changed = False
+        self.aligned1 = True
+        self.aligned2 = True
         self.index = 0
         self.playlist = [[]]
-        self.ui.volume1.setRange(0, 100)
-        self.ui.volume1.setValue(100)
+        self.ui.volume1.setRange(0, 1000)
+        self.ui.volume1.setValue(1000)
         self.ui.songLengthSlider1.setValue(0)
-        self.ui.volume2.setRange(0, 100)
-        self.ui.volume2.setValue(100)
+        self.ui.volume2.setRange(0, 1000)
+        self.ui.volume2.setValue(1000)
         self.ui.songLengthSlider2.setValue(0)
         
-        self.ui.timestretch1.setRange(50, 150) #Pitch of 0 is not permitted based on the library
-        self.ui.timestretch1.setValue(100)
-        self.ui.timestretch2.setRange(50, 150)
-        self.ui.timestretch2.setValue(100)
+        self.ui.timestretch1.setRange(50000, 150000) #Pitch of 0 is not permitted based on the library
+        self.ui.timestretch1.setValue(100000)
+        self.ui.timestretch2.setRange(50000, 150000)
+        self.ui.timestretch2.setValue(100000)
         
         #Prepare 2 different players 
         self.player2 = pyglet.media.Player()
@@ -85,11 +90,11 @@ class MusicPlayer():
     # on the pitch
     def setTimestretch1(self):
         try:
-            self.player1.pitch = (self.ui.timestretch1.value() / 100)
-            self.ui.bpm1.setText(str(round(self.bpmNow1*self.player1.pitch,2)))
+            self.player1.pitch = (self.ui.timestretch1.value() / 100000)
+            self.ui.bpm1.setText(str(round(self.oriBpm1*self.player1.pitch,2)))
             if(self.playedAlready1 and not self.pauseState1):
                 pyglet.clock.unschedule(self.timer1)
-                pyglet.clock.schedule_interval(self.timer1, 0.01/self.player1.pitch)
+                pyglet.clock.schedule_interval(self.timer1, self.timeInterval/self.player1.pitch)
         except:
             error_dialog = QtWidgets.QErrorMessage()
             error_dialog.showMessage('Choose A Song First')
@@ -101,11 +106,11 @@ class MusicPlayer():
     # on the pitch
     def setTimestretch2(self):
         try:
-            self.player2.pitch = (self.ui.timestretch2.value() / 100)
-            self.ui.bpm2.setText(str(round(self.bpmNow2*self.player2.pitch,2)))
+            self.player2.pitch = (self.ui.timestretch2.value() / 100000)
+            self.ui.bpm2.setText(str(round(self.oriBpm2*self.player2.pitch,2)))
             if(self.playedAlready2 and not self.pauseState2):
                 pyglet.clock.unschedule(self.timer2)
-                pyglet.clock.schedule_interval(self.timer2, 0.01/self.player2.pitch)
+                pyglet.clock.schedule_interval(self.timer2, self.timeInterval/self.player2.pitch)
         except:
             error_dialog = QtWidgets.QErrorMessage()
             error_dialog.showMessage('Choose A Song First')
@@ -162,7 +167,11 @@ class MusicPlayer():
             self.playNow1 = self.playlist[index][0]
             self.ui.songList.setCurrentRow(index)
 
-        self.bpmNow1 = self.playlist[self.getSelectedIndex1()][1]
+        self.oriBpm1 = self.playlist[self.getSelectedIndex1()][1]
+        
+        if(self.bpm1Changed):
+            self.bpmValue1 = (self.oriBpm2/self.oriBpm1)*100000
+        
         self.source1 = pyglet.media.load(self.playNow1)
         self.player1.queue(self.source1)
 
@@ -184,7 +193,11 @@ class MusicPlayer():
             self.playNow2 = self.playlist[index][0]
             self.ui.songList2.setCurrentRow(index)
         
-        self.bpmNow2 = self.playlist[self.getSelectedIndex2()][1]
+        self.oriBpm2 = self.playlist[self.getSelectedIndex2()][1]
+        
+        if(self.bpm2Changed):
+            self.bpmValue2 = (self.oriBpm1/self.oriBpm2)*100000
+
         self.source2 = pyglet.media.load(self.playNow2)
         self.player2.queue(self.source2)
 
@@ -206,10 +219,10 @@ class MusicPlayer():
             tempSongname,_ = tempSongname.fileName().rsplit('.',1)
             proc = madmom.features.beats.DBNBeatTrackingProcessor(fps=100)
             act = madmom.features.beats.RNNBeatProcessor(online=True,nn_files=[BEATS_LSTM[0]])(f[0][i])
-            beatAvg = 0 
             beatTimes = proc(act)
+            beatAvg = 0 
             for j in range(len(beatTimes)-1):
-                beatAvg += 60/(beatTimes[i+1]-beatTimes[i])
+                beatAvg += 60/(beatTimes[j+1]-beatTimes[j])
             tempo = round(beatAvg/len(beatTimes))
             self.ui.songList.insertItem(self.index, tempSongname)
             self.ui.songList.setCurrentRow(0)
@@ -227,29 +240,51 @@ class MusicPlayer():
     # Start a fade out effect on player 1 based on the length given by controlling the volume dial
     def fadeOut1(self,length):
         if(self.songLength1-self.time1 <= length):
-            self.fadeValue1 -= ((0.01*100)/length)
+            self.fadeValue1 -= ((self.timeInterval*1000)/length)
             self.ui.volume1.setValue(self.fadeValue1)
         
     # Return : None
     # Start a fade in effect on player 1 based on the length given by controlling the volume dial
     def fadeIn1(self,length):
         if(self.time1 <= length):
-            self.fadeValue1 += ((0.01*100)/length)
+            self.fadeValue1 += ((self.timeInterval*1000)/length)
             self.ui.volume1.setValue(self.fadeValue1)
+            
+    # Return : None
+    # Reset the bpm on the first player to its original value if the bpm is changed 
+    def resetBpm1(self,start,duration):
+        if(self.time1 >= start and self.ui.timestretch1.value() != 100000 and self.bpm1Changed):
+            if(self.ui.timestretch1.value() > 100000):
+                self.bpmValue1 -= (self.changedBpm1-100000)/(duration/self.timeInterval)
+                self.ui.timestretch1.setValue(self.bpmValue1)
+            else:
+                self.bpmValue1 += (100000-self.changedBpm1)/(duration/self.timeInterval)
+                self.ui.timestretch1.setValue(self.bpmValue1)
     
     # Return : None
     # Start a fade out effect on player 2 based on the length given by controlling the volume dial
     def fadeOut2(self,length):
         if(self.songLength2-self.time2 <= length):
-            self.fadeValue2 -= ((0.01*100)/length)
+            self.fadeValue2 -= ((self.timeInterval*1000)/length)
             self.ui.volume2.setValue(self.fadeValue2)
 
     # Return : None
     # Start a fade out effect on player 2 based on the length given by controlling the volume dial
     def fadeIn2(self,length):
         if(self.time2 <= length):
-            self.fadeValue2 += ((0.01*100)/length)
+            self.fadeValue2 += ((self.timeInterval*1000)/length)
             self.ui.volume2.setValue(self.fadeValue2)  
+    
+    # Return : None
+    # Reset the bpm on the second player to its original value if the bpm is changed 
+    def resetBpm2(self,start,duration):
+        if(self.time2 >= start and self.ui.timestretch2.value() != 100000 and self.bpm2Changed):
+            if(self.ui.timestretch2.value() > 100000):
+                self.bpmValue2 -= (self.changedBpm2-100000)/(duration/self.timeInterval)
+                self.ui.timestretch2.setValue(self.bpmValue2)
+            else:
+                self.bpmValue2 += (100000-self.changedBpm2)/(duration/self.timeInterval)
+                self.ui.timestretch2.setValue(self.bpmValue2)
 
     # Return : None
     # Start a timer for player 1 with +- 0,01 seconds precision, fade in for 10 secs when 
@@ -257,20 +292,21 @@ class MusicPlayer():
     # the maximum duration, and play the next song if the current duration equal to the last 10 beat time
     # value from song list 1 beat time array
     def timer1(self,dt):
-        if(float(format(self.time1, '.2f')) == self.playlist[self.getSelectedIndex1()][2][len(self.playlist[self.getSelectedIndex1()][2])-10]):
+        if(float(format(self.time1, '.2f')) == (float(format(self.playlist[self.getSelectedIndex1()][2][len(self.playlist[self.getSelectedIndex1()][2])-40],'.2f')))):    
             self.nextSong2(self.getSelectedIndex1()+1)
                 
         if(self.time1 >= self.songLength1):
             self.stopSong1()
 
-        self.time1 += 0.01
+        self.time1 += dt
         self.curMin1,self.curSec1 = divmod(self.time1, 60)
         self.currentTime1 = '{:02d}:{:02d}'.format(int(self.curMin1),int(self.curSec1))
         self.ui.songLength1.setText(self.currentTime1)
         self.ui.songLengthSlider1.setValue(self.time1)
                    
-        self.fadeIn1(10)
-        self.fadeOut1(10)
+        self.resetBpm1(25,10)
+        self.fadeIn1(30)
+        self.fadeOut1(30)
 
     # Return : None
     # Start a timer for player 2 with +- 0,01 seconds precision, fade in for 10 secs when 
@@ -281,17 +317,20 @@ class MusicPlayer():
         if(self.time2 >= self.songLength2):
             self.stopSong2()
 
-        if(float(format(self.time2, '.2f')) == self.playlist[self.getSelectedIndex2()][2][len(self.playlist[self.getSelectedIndex2()][2])-10]):
+        if(float(format(self.time2, '.2f')) == (float(format(self.playlist[self.getSelectedIndex2()][2][len(self.playlist[self.getSelectedIndex2()][2])-40],'.2f')))):
             self.nextSong1(self.getSelectedIndex2()+1)
 
-        self.time2 += 0.01
+        # print(float(format(self.time2, '.2f')))
+        # print((float(format(self.playlist[self.getSelectedIndex2()][2][len(self.playlist[self.getSelectedIndex2()][2])-40],'.2f'))))
+        self.time2 += dt
         self.curMin2,self.curSec2 = divmod(self.time2, 60)
         self.currentTime2 = '{:02d}:{:02d}'.format(int(self.curMin2),int(self.curSec2))
         self.ui.songLength2.setText(self.currentTime2)
         self.ui.songLengthSlider2.setValue(self.time2)
 
-        self.fadeIn2(10)
-        self.fadeOut2(10)
+        self.resetBpm2(25,10)
+        self.fadeIn2(30)
+        self.fadeOut2(30)
             
     # Return : None
     # Open an open file widget to add mp3/wav files to the songlist 1 and 2
@@ -315,9 +354,14 @@ class MusicPlayer():
                     self.player1.delete()
                     self.player1 = pyglet.media.Player()
                     self.songDetails1()
-                    self.player1.play()
+                    if(self.aligned1):
+                        self.player1.play()
+                    else:
+                        self.time1 = self.playlist[self.getSelectedIndex1()][2][0]
+                        self.player1.seek(self.playlist[self.getSelectedIndex1()][2][0])
+                        self.player1.play()
                     pyglet.clock.unschedule(self.timer1)
-                    pyglet.clock.schedule_interval(self.timer1, 0.01/self.player1.pitch) 
+                    pyglet.clock.schedule_interval(self.timer1, self.timeInterval/self.player1.pitch) 
                     self.setTimestretch1()
                     self.setVolume1()
                     self.playedAlready1 = True
@@ -345,9 +389,15 @@ class MusicPlayer():
                     self.player2.delete()
                     self.player2 = pyglet.media.Player()
                     self.songDetails2()
-                    self.player2.play()
+                    if(self.aligned2):
+                        self.player2.play()
+                    else:
+                        self.time2 = self.playlist[self.getSelectedIndex2()][2][0]
+                        print(self.playlist[self.getSelectedIndex2()][2][0])
+                        self.player2.seek(self.playlist[self.getSelectedIndex2()][2][0])
+                        self.player2.play()
                     pyglet.clock.unschedule(self.timer2)
-                    pyglet.clock.schedule_interval(self.timer2, 0.01/self.player2.pitch) 
+                    pyglet.clock.schedule_interval(self.timer2, self.timeInterval/self.player2.pitch) 
                     self.setTimestretch2()
                     self.setVolume2()
                     self.playedAlready2 = True
@@ -383,7 +433,7 @@ class MusicPlayer():
     def unpauseSong1(self):
         self.player1.play()
         pyglet.clock.unschedule(self.timer1)
-        pyglet.clock.schedule_interval(self.timer1, 0.01/self.player1.pitch)
+        pyglet.clock.schedule_interval(self.timer1, self.timeInterval/self.player1.pitch)
         self.pauseState1 = False
         self.ui.play1.setIcon(QtGui.QIcon("pause.png"))
 
@@ -392,7 +442,7 @@ class MusicPlayer():
     def unpauseSong2(self):
         self.player2.play()
         pyglet.clock.unschedule(self.timer2)
-        pyglet.clock.schedule_interval(self.timer2, 0.01/self.player2.pitch)
+        pyglet.clock.schedule_interval(self.timer2, self.timeInterval/self.player2.pitch)
         self.pauseState2 = False
         self.ui.play2.setIcon(QtGui.QIcon("pause.png"))
  
@@ -427,12 +477,12 @@ class MusicPlayer():
     # Return : None
     # Set the volume of player 1
     def setVolume1(self):
-        self.player1.volume = (self.ui.volume1.value() / 100)
+        self.player1.volume = (self.ui.volume1.value() / 1000)
 
     # Return : None
     # Set the volume of player 2
     def setVolume2(self):
-        self.player2.volume = (self.ui.volume2.value() / 100)
+        self.player2.volume = (self.ui.volume2.value() / 1000)
 
     # Return : None
     # Rewind the song of player 1, if its less than 5 seconds go back to the previous song
@@ -457,10 +507,27 @@ class MusicPlayer():
             self.playSong2()
 
     # Return : None
+    # Change the bpm of the first player to match the bpm of the previous song
+    def changeBpm1(self):
+        self.ui.timestretch1.setValue((self.oriBpm2/self.oriBpm1)*100000)
+        self.changedBpm1 = self.ui.timestretch1.value()
+        self.bpm1Changed = True
+        self.aligned1 = False
+
+    # Return : None
+    # Change the bpm of the second player to match the bpm of the previous song
+    def changeBpm2(self):
+        self.ui.timestretch2.setValue((self.oriBpm1/self.oriBpm2)*100000)
+        self.changedBpm2 = self.ui.timestretch2.value()
+        self.bpm2Changed = True  
+        self.aligned2 = False
+
+    # Return : None
     # Play the next song of player 1, if index is specified jump to the song that has the same song index
     def nextSong1(self,songIndex=None):
         if(songIndex is not False and ((self.getSelectedIndex2()) != self.index-1)):
             self.songDetails1(songIndex)
+            self.changeBpm1()
             self.stopSong1()
             self.playSong1()
         elif(songIndex is False and ((self.getSelectedIndex1()) != self.index-1)):
@@ -468,15 +535,16 @@ class MusicPlayer():
             self.stopSong1()
             self.playSong1()
         else:
+            self.changeBpm1()
             self.stopSong1()
             self.playSong1()  
 
     # Return : None
     # Play the next song of player 2, if index is specified jump to the song that has the same song index
     def nextSong2(self,songIndex=None):
-        print(songIndex)
         if(songIndex is not False and ((self.getSelectedIndex1()) != self.index-1)):
             self.songDetails2(songIndex)
+            self.changeBpm2()
             self.stopSong2()
             self.playSong2()
         elif(songIndex is False and ((self.getSelectedIndex2()) != self.index-1)):
@@ -484,6 +552,7 @@ class MusicPlayer():
             self.stopSong2()
             self.playSong2()
         else:
+            self.changeBpm2()
             self.stopSong2()
             self.playSong2()   
 
