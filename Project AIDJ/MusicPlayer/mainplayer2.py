@@ -6,6 +6,7 @@ from PyQt5.QtCore import QUrl,QThread
 from mutagen.mp3 import MP3
 from madmom.models import BEATS_LSTM    
 import pyglet
+import sox
 import madmom
 import playergui,sys,time,threading 
 
@@ -215,10 +216,38 @@ class MusicPlayer():
     def addToPlaylist(self,f):
         self.totalSong = len(f[0])
         for i in range(len(f[0])):
+            tfm1 = sox.Transformer()
+            sox_duration = sox.file_info.duration(f[0][i])
+            tfm1.fade(fade_in_len=5)
+            tfm1.trim(0, sox_duration-17)
+            tfm1.build_file(f[0][i], 'C:\\Users\\Fadli\\Downloads\\Part1.wav')
+
+            tfm2 = sox.Transformer()
+            tfm2.trim(sox_duration-17, sox_duration-16.5)
+            tfm2.bass(-5)
+            tfm2.build_file(f[0][i], 'C:\\Users\\Fadli\\Downloads\\Part2.wav')
+
+            tfm3 = sox.Transformer()
+            tfm3.trim(sox_duration-16.5, sox_duration-16)
+            tfm3.bass(-15)
+            tfm3.build_file(f[0][i], 'C:\\Users\\Fadli\\Downloads\\Part3.wav')
+
+            tfm4 = sox.Transformer()
+            tfm4.trim(sox_duration-16, sox_duration)
+            tfm4.fade(fade_out_len=16)
+            tfm4.bass(-35)
+            tfm4.build_file(f[0][i], 'C:\\Users\\Fadli\\Downloads\\Part4.wav')
+            
+            sox_output,_ = f[0][i].rsplit('.',1)
+            sox_output += '.wav'
+
+            cbn = sox.Combiner()
+            cbn.build(['C:\\Users\\Fadli\\Downloads\\Part1.wav', 'C:\\Users\\Fadli\\Downloads\\Part2.wav', 'C:\\Users\\Fadli\\Downloads\\Part3.wav', 'C:\\Users\\Fadli\\Downloads\\Part4.wav'], sox_output , 'concatenate')
+            
             tempSongname = QUrl.fromLocalFile(f[0][i])
             tempSongname,_ = tempSongname.fileName().rsplit('.',1)
             proc = madmom.features.beats.DBNBeatTrackingProcessor(fps=100)
-            act = madmom.features.beats.RNNBeatProcessor(online=True,nn_files=[BEATS_LSTM[0]])(f[0][i])
+            act = madmom.features.beats.RNNBeatProcessor(online=True,nn_files=[BEATS_LSTM[0]])(sox_output)
             beatTimes = proc(act)
             beatAvg = 0 
             for j in range(len(beatTimes)-1):
@@ -228,7 +257,7 @@ class MusicPlayer():
             self.ui.songList.setCurrentRow(0)
             self.ui.songList2.insertItem(self.index, tempSongname)
             self.ui.songList2.setCurrentRow(0)
-            self.playlist[self.index].append(f[0][i])
+            self.playlist[self.index].append(sox_output)
             self.playlist[self.index].append(tempo)
             self.playlist[self.index].append(beatTimes)
             self.playlist.append([])
@@ -292,7 +321,7 @@ class MusicPlayer():
     # the maximum duration, and play the next song if the current duration equal to the last 10 beat time
     # value from song list 1 beat time array
     def timer1(self,dt):
-        if(float(format(self.time1, '.2f')) == (float(format(self.playlist[self.getSelectedIndex1()][2][len(self.playlist[self.getSelectedIndex1()][2])-40],'.2f')))):    
+        if(float(format(self.time1, '.2f')) == (float(format(self.playlist[self.getSelectedIndex1()][2][len(self.playlist[self.getSelectedIndex1()][2])-60],'.2f')))):    
             self.nextSong2(self.getSelectedIndex1()+1)
                 
         if(self.time1 >= self.songLength1):
@@ -317,7 +346,7 @@ class MusicPlayer():
         if(self.time2 >= self.songLength2):
             self.stopSong2()
 
-        if(float(format(self.time2, '.2f')) == (float(format(self.playlist[self.getSelectedIndex2()][2][len(self.playlist[self.getSelectedIndex2()][2])-40],'.2f')))):
+        if(float(format(self.time2, '.2f')) == (float(format(self.playlist[self.getSelectedIndex2()][2][len(self.playlist[self.getSelectedIndex2()][2])-60],'.2f')))):
             self.nextSong1(self.getSelectedIndex2()+1)
 
         # print(float(format(self.time2, '.2f')))
@@ -366,7 +395,7 @@ class MusicPlayer():
                     self.setVolume1()
                     self.playedAlready1 = True
                     self.pauseState1 = False
-                    self.ui.play1.setIcon(QtGui.QIcon("pause.png"))
+                    self.ui.play1.setIcon(QtGui.QIcon("C:\\Users\\Fadli\\Desktop\\AI DJ\\Project AIDJ\\MusicPlayer\\pause.png"))
                 except:
                     error_dialog = QtWidgets.QErrorMessage()
                     error_dialog.showMessage('Choose A Song First')
@@ -402,7 +431,7 @@ class MusicPlayer():
                     self.setVolume2()
                     self.playedAlready2 = True
                     self.pauseState2 = False
-                    self.ui.play2.setIcon(QtGui.QIcon("pause.png"))
+                    self.ui.play2.setIcon(QtGui.QIcon("C:\\Users\\Fadli\\Desktop\\AI DJ\\Project AIDJ\\MusicPlayer\\pause.png"))
                 except:
                     error_dialog = QtWidgets.QErrorMessage()
                     error_dialog.showMessage('Choose A Song First')
@@ -417,7 +446,7 @@ class MusicPlayer():
     def pauseSong1(self):
         self.player1.pause()
         pyglet.clock.unschedule(self.timer1)
-        self.ui.play1.setIcon(QtGui.QIcon("play.png"))
+        self.ui.play1.setIcon(QtGui.QIcon("C:\\Users\\Fadli\\Desktop\\AI DJ\\Project AIDJ\\MusicPlayer\\play.png"))
         self.pauseState1 = True
 
     # Return : None
@@ -425,7 +454,7 @@ class MusicPlayer():
     def pauseSong2(self):
         self.player2.pause()
         pyglet.clock.unschedule(self.timer2)
-        self.ui.play2.setIcon(QtGui.QIcon("play.png"))
+        self.ui.play2.setIcon(QtGui.QIcon("C:\\Users\\Fadli\\Desktop\\AI DJ\\Project AIDJ\\MusicPlayer\\play.png"))
         self.pauseState2 = True
 
     # Return : None
@@ -435,7 +464,7 @@ class MusicPlayer():
         pyglet.clock.unschedule(self.timer1)
         pyglet.clock.schedule_interval(self.timer1, self.timeInterval/self.player1.pitch)
         self.pauseState1 = False
-        self.ui.play1.setIcon(QtGui.QIcon("pause.png"))
+        self.ui.play1.setIcon(QtGui.QIcon("C:\\Users\\Fadli\\Desktop\\AI DJ\\Project AIDJ\\MusicPlayer\\pause.png"))
 
     # Return : None
     # Unpause the current song playing on player 2, unpause the timer
@@ -444,7 +473,7 @@ class MusicPlayer():
         pyglet.clock.unschedule(self.timer2)
         pyglet.clock.schedule_interval(self.timer2, self.timeInterval/self.player2.pitch)
         self.pauseState2 = False
-        self.ui.play2.setIcon(QtGui.QIcon("pause.png"))
+        self.ui.play2.setIcon(QtGui.QIcon("C:\\Users\\Fadli\\Desktop\\AI DJ\\Project AIDJ\\MusicPlayer\\pause.png"))
  
     # Return : None
     # Stop the current song playing on player 1, reset the timer      
@@ -458,7 +487,7 @@ class MusicPlayer():
         self.time1 = 0
         self.ui.songLengthSlider1.setValue(0)
         self.ui.songLength1.setText(self.length1)  
-        self.ui.play1.setIcon(QtGui.QIcon("play.png")) 
+        self.ui.play1.setIcon(QtGui.QIcon("C:\\Users\\Fadli\\Desktop\\AI DJ\\Project AIDJ\\MusicPlayer\\play.png")) 
 
     # Return : None
     # Stop the current song playing on player 2, reset the timer 
@@ -472,7 +501,7 @@ class MusicPlayer():
         self.time2 = 0
         self.ui.songLengthSlider2.setValue(0)
         self.ui.songLength2.setText(self.length2)  
-        self.ui.play2.setIcon(QtGui.QIcon("play.png"))\
+        self.ui.play2.setIcon(QtGui.QIcon("C:\\Users\\Fadli\\Desktop\\AI DJ\\Project AIDJ\\MusicPlayer\\play.png"))\
 
     # Return : None
     # Set the volume of player 1
