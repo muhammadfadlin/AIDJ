@@ -1,0 +1,3 @@
+# AIDJ
+
+Master thesis project
